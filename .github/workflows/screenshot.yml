@@ -2,7 +2,7 @@ name: Daily Screenshot
 
 on:
   schedule:
-    - cron: '0 7 * * *'   # elke dag om 07:00 UTC (~09:00 BE)
+    - cron: '0 7 * * *'
   workflow_dispatch:
 
 jobs:
@@ -11,10 +11,10 @@ jobs:
 
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
-      - name: Install Node
-        uses: actions/setup-node@v3
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
           node-version: '20'
 
@@ -28,6 +28,11 @@ jobs:
         run: |
           git config --global user.name "bot"
           git config --global user.email "bot@example.com"
-          git add screenshots/*
-          git commit -m "Add screenshot $(date +'%Y-%m-%d')" || echo "No changes"
-          git push
+          
+          if [ -d "screenshots" ]; then
+            git add screenshots/*
+            git commit -m "Add screenshot $(date +'%Y-%m-%d')" || echo "No changes"
+            git push
+          else
+            echo "No screenshots folder yet"
+          fi
