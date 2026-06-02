@@ -1,0 +1,33 @@
+name: Daily Screenshot
+
+on:
+  schedule:
+    - cron: '0 7 * * *'   # elke dag om 07:00 UTC (~09:00 BE)
+  workflow_dispatch:
+
+jobs:
+  screenshot:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Install Node
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run screenshot script
+        run: node screenshot.js
+
+      - name: Commit screenshots
+        run: |
+          git config --global user.name "bot"
+          git config --global user.email "bot@example.com"
+          git add screenshots/*
+          git commit -m "Add screenshot $(date +'%Y-%m-%d')" || echo "No changes"
+          git push
