@@ -1,39 +1,85 @@
-name: Daily Screenshot
+const puppeteer = require('puppeteer');
+const fs = require('fs');
 
-on:
-  schedule:
-    - cron: '0 7 * * *'
-  workflow_dispatch:
+(async () => {
+  const browser = await puppeteer.launch({
+    headless: "new",
+    args: [
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage',
+      '--disable-gpu'
+    ]
+  });
 
-jobs:
-  screenshot:
-    runs-on: ubuntu-latest
+  const page = await browser.newPage();
 
-    steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4   # ✅ update
+  // Desktop resolutie
+  await page.setViewport({ width: 1920, height: 1080 });
 
-      - name: Setup Node
-        uses: actions/setup-node@v4   # ✅ update
-        with:
-          node-version: '20'
+  // Ga naar website
+  await page.goto('https://www.calvinklein.be/', {
+    waitUntil: 'networkidle2',
+    timeout: 60000
+  });
 
-      - name: Install dependencies
-        run: npm install
+  console.log("✅ Page loaded");
 
-      - name: Run screenshot script
-        run: node screenshot.js
+  // Cookie banner accepteren (indien aanwezig)
+  try {
+    await page.click('#onetrust-accept-btn-handler');
+    console.log("✅ Cookies accepted");
+  } catch (e) {
+    console.log("ℹ️ No cookie banner found");
+  }
 
-      - name: Commit screenshots
-        run: |
-          git config --global user.name "bot"
-          git config --global user.email "bot@example.com"
-          
-          if [ -d "screenshots" ]; then
-            git add screenshots/*
-            git commit -m "Add screenshot $(date +'%Y-%m-%d')" || echo "No changes"
-            git push
-          else
-            echo "No screenshots folder yet"
-          fi
+  // Wacht even zodat alles stabiel is
+  await new Promise(resolve => setTimeout(resolve, 3000));
+
+  // ✅ Scroll door de volledige pagina (lazy load fix)
+  await autoScroll(page);
+
+  // ✅ Extra wachten zodat alles geladen is
+  await new Promise(resolve => setTimeout(resolve, 3000));
+
+  // Bestandsnaam met datum
+  const date = new Date().toISOString().slice(0, 10);
+  const fileName = `screenshots/calvinklein-${date}.png`;
+
+  // Maak map als die nog niet bestaat
+  if (!fs.existsSync('screenshots')) {
+    fs.mkdirSync('screenshots');
+  }
+
+  // ✅ Full page screenshot
+  await page.screenshot({
+    path: fileName,
+    fullPage: true
+  });
+
+  console.log(`✅ Screenshot saved: ${fileName}`);
+
+  await browser.close();
+})();
+
+
+// ✅ Functie om automatisch te scrollen
+async function autoScroll(page) {
+  await page.evaluate(async () => {
+    await new Promise((resolve) => {
+      let totalHeight = 0;
+      const distance = 200;
+
+      const timer = setInterval(() => {
+        window.scrollBy(0, distance);
+        totalHeight += distance;
+
+        if (totalHeight >= document.body.scrollHeight) {
+          clearInterval(timer);
+          resolve();
+        }
+      }, 100);
+    });
+  });
+}
 ``
