@@ -1,76 +1,39 @@
-const puppeteer = require('puppeteer');
-const fs = require('fs');
+name: Daily Screenshot
 
-(async () => {
-  const browser = await puppeteer.launch({
-    args: ['--no-sandbox']
-  });
+on:
+  schedule:
+    - cron: '0 7 * * *'
+  workflow_dispatch:
 
-  const page = await browser.newPage();
+jobs:
+  screenshot:
+    runs-on: ubuntu-latest
 
-  // Desktop formaat
-  await page.setViewport({ width: 1920, height: 1080 });
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4   # ✅ update
 
-  // Ga naar website
-  await page.goto('https://www.calvinklein.be/', {
-    waitUntil: 'networkidle2',
-    timeout: 60000
-  });
+      - name: Setup Node
+        uses: actions/setup-node@v4   # ✅ update
+        with:
+          node-version: '20'
 
-  // Cookie banner accepteren (indien aanwezig)
-  try {
-    await page.click('#onetrust-accept-btn-handler');
-    console.log("Cookies accepted");
-  } catch (e) {
-    console.log("No cookie banner found");
-  }
+      - name: Install dependencies
+        run: npm install
 
-  // Wacht even zodat alles stabiliseert
-  await new Promise(resolve => setTimeout(resolve, 3000));
+      - name: Run screenshot script
+        run: node screenshot.js
 
-  // ✅ AUTO SCROLL (belangrijk!)
-  await autoScroll(page);
-
-  // ✅ EXTRA WACHTEN (laat alles laden)
-  await new Promise(resolve => setTimeout(resolve, 3000));
-
-  // Bestandsnaam met datum
-  const date = new Date().toISOString().slice(0, 10);
-  const fileName = `screenshots/calvinklein-${date}.png`;
-
-  // Maak map als die niet bestaat
-  if (!fs.existsSync('screenshots')) {
-    fs.mkdirSync('screenshots');
-  }
-
-  // ✅ FULL PAGE SCREENSHOT
-  await page.screenshot({
-    path: fileName,
-    fullPage: true
-  });
-
-  console.log(`✅ Screenshot saved: ${fileName}`);
-
-  await browser.close();
-})();
-
-
-// ✅ FUNCTIE DIE SCROLLT DOOR HELE PAGINA
-async function autoScroll(page) {
-  await page.evaluate(async () => {
-    await new Promise((resolve) => {
-      let totalHeight = 0;
-      const distance = 200;
-
-      const timer = setInterval(() => {
-        window.scrollBy(0, distance);
-        totalHeight += distance;
-
-        if (totalHeight >= document.body.scrollHeight) {
-          clearInterval(timer);
-          resolve();
-        }
-      }, 100);
-    });
-  });
-}
+      - name: Commit screenshots
+        run: |
+          git config --global user.name "bot"
+          git config --global user.email "bot@example.com"
+          
+          if [ -d "screenshots" ]; then
+            git add screenshots/*
+            git commit -m "Add screenshot $(date +'%Y-%m-%d')" || echo "No changes"
+            git push
+          else
+            echo "No screenshots folder yet"
+          fi
+``
